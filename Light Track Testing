@@ -1,3 +1,4 @@
+
 /*
   RC Base
   3/12/17 by Mike Fuerst and John Van Orden 
@@ -211,8 +212,8 @@ void driveRight(int d, int t) {
 //**************************************************************
 void loop()
 {
-  int const DELTA = 100; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
-  int AMB = 300; //Sensor is looking at ambient if reading this or higher
+  int const DELTA = 200; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
+  int AMB = 750; //Sensor is looking at ambient if reading this or higher
   
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
@@ -235,7 +236,7 @@ void loop()
   
   //Light is straight ahead
   if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue<AMB || R_PhotoValue<AMB)){
-    straightFwd(100);
+    straightFwd(150);
   }
 
   //Light is to the left
@@ -250,13 +251,13 @@ void loop()
   
 
 //   Serial.println(SharpValue);
-//  Serial.print("Delta value= ");
-//  Serial.println(Delta);
-//  Serial.print("L_Photo Sensor = ");
-//  Serial.println(L_PhotoValue);
-//  Serial.print("R_Photo Sensor = ");
-//  Serial.println(R_PhotoValue);
-//  Serial.println(" ");
+  Serial.print("Delta value= ");
+  Serial.println(Delta);
+  Serial.print("L_Photo Sensor = ");
+  Serial.println(L_PhotoValue);
+  Serial.print("R_Photo Sensor = ");
+  Serial.println(R_PhotoValue);
+  Serial.println(" ");
 //
 //  delay(500);
 }
