@@ -18,8 +18,11 @@ Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  /
 
 int L_PhotoValue; // Variable to hold Left photo data
 int R_PhotoValue; // Variable to hold Right photo data
-const int L_PhotoPin = A9; //Pin connecting the photo
-const int R_PhotoPin = A8; //Pin connecting the photo
+int SharpValue; //Variable to hold prox sensor data
+const int L_PhotoPin = A9; //Pin connecting the left photo
+const int R_PhotoPin = A8; //Pin connecting the right photo
+const int SharpPin = A7; //Pin connecting the sharp sensor
+
 
 //**************************************************************
 //*****************  Setup  ************************************
@@ -116,8 +119,8 @@ void pulseMotors() {
   //un-comment the next two to map a control range.
   //*** Take the standard range of 1000 to 2000 and frame it to your own minimum and maximum
   //*** for each wheel.
-  Lwheel = map(Lwheel, 1000, 2000, 1350, 1600); // >1500 is reverse
-  Rwheel = map(Rwheel, 1000, 2000, 1300, 1750);// >1500 is forward
+  Lwheel = map(Lwheel, 1000, 2000, 1090, 1865); // >1500 is reverse
+  Rwheel = map(Rwheel, 1000, 2000, 1000, 2000);// >1500 is forward
   L_Servo.writeMicroseconds(Lwheel);
   R_Servo.writeMicroseconds(Rwheel);
 
@@ -149,65 +152,111 @@ void driveServosRC()
 //*****************  spin()  ************************
 //*******  Rotate on a Dime  **************
 //**************************************************************
-void spin() {
-Lwheel = 1850; 
-Rwheel = 1650;
-pulseMotors();
+void spin(int t) {
+  Lwheel = 1500+t; 
+  Rwheel = 1500+t;
+  pulseMotors();
 }
 
 
-//**********************  lightTrack()  ***************************
-//***      Autonomously move toward a light source   ***
+//*****************  brake()  ************************
+//*******  Stop the robot and pause **************
 //**************************************************************
-void lightTrack(){ 
-L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
-R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
-int ambient = 800;
-int bright = 250; //If either sensor below this number, stop driving.
-int Delta = L_PhotoValue - R_PhotoValue;
-int Forward_range = 100;
-Serial.print("Delta value= ");
-Serial.println(Delta);
-Serial.print("L_Photo Sensor = ");
-Serial.println(L_PhotoValue);
-Serial.print("R_Photo Sensor = ");
-Serial.println(R_PhotoValue);
-if (L_PhotoValue >= ambient && R_PhotoValue >= ambient){ //spin for ambient
-  spin();
-}
-else if (L_PhotoValue < bright || R_PhotoValue < bright){ //stop moving. I used || not && because up close values can pretty different.
-  Rwheel = 1450;
+void brake() {
   Lwheel = 1500;
+  Rwheel = 1500;
   pulseMotors();
-}
-else {                                                   //otherwise drive in the following ways....
-if (Delta >= -Forward_range && Delta <= Forward_range) { // drive forward
-  Rwheel = 1750;
-  Lwheel = 1100;
-  pulseMotors();
-  
-}
-else if (Delta <- -Forward_range){                       //spin left
-  Rwheel = 1750 + 100;                                  // just add a bit to make right wheel spin faster
-  Lwheel = 1100;
-  pulseMotors();
-}
-else if (Delta >- Forward_range){                       //spin right
-  Rwheel = 1750;   
-  Lwheel = 1100 - 100;                              
-  pulseMotors();                                        // just subtract a bit to make left wheel spin faster
-}
-}
-delay(100);
+  delay(1000);
 }
 
+
+//*****************  straightFwd()  ************************
+//*******  Drive straight  **************
+//**************************************************************
+void straightFwd(int d) {
+  Lwheel = 1500-d;
+  Rwheel = 1500+d;
+  pulseMotors();
+} 
+
+//*****************  straightRev()  ************************
+//*******  Drive straight  **************
+//**************************************************************
+void straightRev(int d) {
+  Lwheel = 1500+d;
+  Rwheel = 1500-d;
+  pulseMotors();
+}
+
+//*****************  driveLeft()  ************************
+//*******  Drive left - speed determined by d rotation by t  **************
+//**************************************************************
+void driveLeft(int d, int t) {
+  Lwheel = 1500-d;
+  Rwheel = 1500+d+t;
+  pulseMotors();
+}
+
+//*****************  driveRight()  ************************
+//*******  Drive right - speed determined by d rotation by t **************
+//**************************************************************
+void driveRight(int d, int t) {
+  Lwheel = 1500-d-t;
+  Rwheel = 1500+d;
+  pulseMotors();
+}
 
 //************************  loop()  ****************************
 //**********************  Main Loop  ***************************
 //**************************************************************
 void loop()
 {
+  int const DELTA = 100; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
+  int AMB = 300; //Sensor is looking at ambient if reading this or higher
+  
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
-  lightTrack();
+
+  L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
+  R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
+  SharpValue = analogRead(SharpPin);
+  int Delta = L_PhotoValue - R_PhotoValue;
+
+  //You are one foot away
+  if(SharpValue > 200){
+    brake();
+    return;
+  }
+
+  //Light is out of range
+  if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue>AMB || R_PhotoValue>AMB)){
+    spin(100);
+  }
+  
+  //Light is straight ahead
+  if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue<AMB || R_PhotoValue<AMB)){
+    straightFwd(100);
+  }
+
+  //Light is to the left
+  if(Delta<(-DELTA)){
+    driveLeft(150, 10);
+  }
+
+  //Light is to the right
+  if(Delta>DELTA){
+    driveRight(150, 10);
+  }
+  
+
+//   Serial.println(SharpValue);
+//  Serial.print("Delta value= ");
+//  Serial.println(Delta);
+//  Serial.print("L_Photo Sensor = ");
+//  Serial.println(L_PhotoValue);
+//  Serial.print("R_Photo Sensor = ");
+//  Serial.println(R_PhotoValue);
+//  Serial.println(" ");
+//
+//  delay(500);
 }
