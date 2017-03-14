@@ -12,6 +12,7 @@ int Ch1, Ch2, Ch3, Ch4, Ch5, Ch6;
 int CalcHold;        //Variable to temp hold calculations for steering stick corections
 int Lwheel;
 int Rwheel;
+bool foundSide = true; //If light last seen on the left: false, if the right: true
 
 // Create Servo Objects as defined in the Servo.h files
 Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
@@ -154,9 +155,17 @@ void driveServosRC()
 //*******  Rotate on a Dime  **************
 //**************************************************************
 void spin(int t) {
-  Lwheel = 1500+t; 
-  Rwheel = 1500+t;
-  pulseMotors();
+  if(foundSide){
+    //Spin right
+    Lwheel = 1500+t; 
+    Rwheel = 1500+t;
+    pulseMotors();
+  } else {
+    //Spin left
+    Lwheel = 1500-t; 
+    Rwheel = 1500-t;
+    pulseMotors();
+  }
 }
 
 
@@ -164,10 +173,7 @@ void spin(int t) {
 //*******  Stop the robot and pause **************
 //**************************************************************
 void brake() {
-  Lwheel = 1500;
-  Rwheel = 1500;
   pulseMotors();
-  delay(1000);
 }
 
 
@@ -207,13 +213,13 @@ void driveRight(int d, int t) {
   pulseMotors();
 }
 
-//************************  loop()  ****************************
-//**********************  Main Loop  ***************************
+
+//*****************  navToLight()  ************************
+//*******  Drive to light and stop one foot away  **************
 //**************************************************************
-void loop()
-{
-  int const DELTA = 200; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
-  int AMB = 750; //Sensor is looking at ambient if reading this or higher
+void navToLight() {
+  int const DELTA = 250; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
+  int AMB = 700; //Sensor is looking at ambient if reading this or higher
   
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
@@ -222,9 +228,10 @@ void loop()
   R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
   SharpValue = analogRead(SharpPin);
   int Delta = L_PhotoValue - R_PhotoValue;
+  
 
   //You are one foot away
-  if(SharpValue > 200){
+  if(SharpValue > 175 && SharpValue < 350){
     brake();
     return;
   }
@@ -242,11 +249,18 @@ void loop()
   //Light is to the left
   if(Delta<(-DELTA)){
     driveLeft(150, 10);
+    foundSide = false;
   }
 
   //Light is to the right
   if(Delta>DELTA){
     driveRight(150, 10);
+    foundSide = true;
+  }
+
+  //Too close to box or obstacle - back up
+  if(SharpValue >= 400){
+    straightRev(100); 
   }
   
 
@@ -260,4 +274,11 @@ void loop()
   Serial.println(" ");
 //
 //  delay(500);
+}
+
+//************************  loop()  ****************************
+//**********************  Main Loop  ***************************
+//**************************************************************
+void loop(){
+  navToLight();
 }
