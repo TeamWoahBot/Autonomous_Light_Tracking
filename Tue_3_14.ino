@@ -1,0 +1,263 @@
+
+/*
+  RC Base
+  3/12/17 by Mike Fuerst and John Van Orden 
+  (Based on Code by Brian Patton)
+  Allows for driving the test robot using an RC controller
+*/
+#include <Servo.h>
+
+// Create Variables to hold the Receiver signals
+int Ch1, Ch2, Ch3, Ch4, Ch5, Ch6;
+int CalcHold;        //Variable to temp hold calculations for steering stick corections
+int Lwheel;
+int Rwheel;
+
+// Create Servo Objects as defined in the Servo.h files
+Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
+Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)
+
+int L_PhotoValue; // Variable to hold Left photo data
+int R_PhotoValue; // Variable to hold Right photo data
+int SharpValue; //Variable to hold prox sensor data
+const int L_PhotoPin = A9; //Pin connecting the left photo
+const int R_PhotoPin = A8; //Pin connecting the right photo
+const int SharpPin = A7; //Pin connecting the sharp sensor
+
+
+//**************************************************************
+//*****************  Setup  ************************************
+//**************************************************************
+void setup() {
+  // Set the pins that the transmitter will be connected to all to input
+  pinMode(12, INPUT); //I connected this to Chan1 of the Receiver
+  pinMode(11, INPUT); //I connected this to Chan2 of the Receiver
+  pinMode(10, INPUT); //I connected this to Chan3 of the Receiver
+  pinMode(9, INPUT); //I connected this to Chan4 of the Receiver
+  pinMode(8, INPUT); //I connected this to Chan5 of the Receiver
+  pinMode(7, INPUT); //I connected this to Chan6 of the Receiver
+  pinMode(13, OUTPUT); //Onboard LED to output for diagnostics
+  // Attach Speed controller that acts like a servo to the board
+  L_Servo.attach(3); //Pin 2
+  R_Servo.attach(2); //Pin 3
+  //Flash the LED on and Off 10x Start
+  for (int i = 0; i < 10; i++) {
+    digitalWrite(13, HIGH);
+    delay(100);
+    digitalWrite(13, LOW);
+    delay(100);
+  }
+  //Flash the LED on and Off 10x End
+  Serial.begin(9600);
+}
+
+//********************** mixLimits() ***************************
+//*******  Make sure values never exceed ranges  ***************
+//******  For most all servos and like controlers  *************
+//****   control must fall between 1000uS and 2000uS  **********
+//**************************************************************
+void setLimits() {
+  if (Rwheel < 1000) {// Can be set to a value you don't wish to exceed
+    Rwheel = 1000;    // to adjust maximums for your own robot
+  }
+  if (Rwheel > 2000) {// Can be set to a value you don't wish to exceed
+    Rwheel = 2000;    // to adjust maximums for your own robot
+  }
+  if (Lwheel < 1000) {// Can be set to a value you don't wish to exceed
+    Lwheel = 1000;    // to adjust maximums for your own robot
+  }
+  if (Lwheel > 2000) {// Can be set to a value you don't wish to exceed
+    Lwheel = 2000;    // to adjust maximums for your own robot
+  }
+  pulseMotors();
+  //L_Servo.writeMicroseconds(Lwheel);
+  //R_Servo.writeMicroseconds(Rwheel);
+  //  printWheelCalcs(); //REMEMBER: printing values slows reaction times
+}
+
+
+//*****************  printWheelCalcs()  ************************
+//*******  Prints calculated wheel output values  **************
+//**************************************************************
+void printWheelCalcs() {
+ Serial.print("Lwheel = ");
+ Serial.println(Lwheel);
+ Serial.print("Rwheel = ");
+ Serial.println(Rwheel);
+}
+
+
+//**********************  printChannels()  ***************************
+//***  Simply print the collected RC values for diagnostics  ***
+//**************************************************************
+void printChannels()
+{ // print out the values you read in:
+  Serial.println(" RC Control Mode ");
+  Serial.print("Value Ch1 = ");
+  Serial.println(Ch1);
+  Serial.print("Value Ch2 = ");
+  Serial.println(Ch2);
+}
+
+
+//********************  testWheels()  **************************
+//*  Direct call to Servos to test wheel speed and direction  **
+//**************************************************************
+void testWheels() {
+ L_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
+ R_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
+}
+
+
+//*******************   pulseMotors  ***************************
+//pulses either mapped or direct signals generated from mixLimits
+//**************************************************************
+void pulseMotors() {
+  //un-comment the next two line to drive the wheels directly with the MaxLimits Set
+  //L_Servo.writeMicroseconds(Lwheel);
+  //R_Servo.writeMicroseconds(Rwheel);
+
+  //un-comment the next two to map a control range.
+  //*** Take the standard range of 1000 to 2000 and frame it to your own minimum and maximum
+  //*** for each wheel.
+  Lwheel = map(Lwheel, 1000, 2000, 1090, 1865); // >1500 is reverse
+  Rwheel = map(Rwheel, 1000, 2000, 1000, 2000);// >1500 is forward
+  L_Servo.writeMicroseconds(Lwheel);
+  R_Servo.writeMicroseconds(Rwheel);
+
+  // un-comment this line do display the value being sent to the motors
+  // printWheelCalcs(); //REMEMBER: printing values slows reaction times
+}
+
+//*******************  driveServosRC()  ************************
+//******  Use the value collected from Ch1 and Ch2  ************
+//******  on a single stick to relatively calculate  ***********
+//****  speed and direction of two servo driven wheels *********
+//**************************************************************
+void driveServosRC()
+{
+  if (Ch2 <= 1500) {
+    Rwheel = Ch1 + Ch2 - 1500;
+    Lwheel = Ch1 - Ch2 + 1500;
+    setLimits();
+  }
+  if (Ch2 > 1500) {
+    int Ch1_mod = map(Ch1, 1000, 2000, 2000, 1000); // Invert the Ch1 axis to keep the math similar
+    Rwheel = Ch1_mod + Ch2 - 1500;
+    Lwheel = Ch1_mod - Ch2 + 1500;
+    setLimits();
+  }
+}
+
+
+//*****************  spin()  ************************
+//*******  Rotate on a Dime  **************
+//**************************************************************
+void spin(int t) {
+  Lwheel = 1500+t; 
+  Rwheel = 1500+t;
+  pulseMotors();
+}
+
+
+//*****************  brake()  ************************
+//*******  Stop the robot and pause **************
+//**************************************************************
+void brake() {
+  Lwheel = 1500;
+  Rwheel = 1500;
+  pulseMotors();
+  delay(1000);
+}
+
+
+//*****************  straightFwd()  ************************
+//*******  Drive straight  **************
+//**************************************************************
+void straightFwd(int d) {
+  Lwheel = 1500-d - 20;
+  Rwheel = 1500+d -25 ;
+  pulseMotors();
+} 
+
+//*****************  straightRev()  ************************
+//*******  Drive straight  **************
+//**************************************************************
+void straightRev(int d) {
+  Lwheel = 1500+d;
+  Rwheel = 1500-d;
+  pulseMotors();
+}
+
+//*****************  driveLeft()  ************************
+//*******  Drive left - speed determined by d rotation by t  **************
+//**************************************************************
+void driveLeft(int d, int t) {
+  Lwheel = 1500-d -20;
+  Rwheel = 1500+d+t -27;
+  pulseMotors();
+}
+
+//*****************  driveRight()  ************************
+//*******  Drive right - speed determined by d rotation by t **************
+//**************************************************************
+void driveRight(int d, int t) {
+  Lwheel = 1500-d-t -20;
+  Rwheel = 1500+d -25;
+  pulseMotors();
+}
+
+//************************  loop()  ****************************
+//**********************  Main Loop  ***************************
+//**************************************************************
+void loop()
+{
+  int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
+  int AMB = 800; //Sensor is looking at ambient if reading this or higher
+  
+  Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
+  Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
+
+  L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
+  R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
+  SharpValue = analogRead(SharpPin);
+  int Delta = L_PhotoValue - R_PhotoValue;
+
+  //You are one foot away
+  if(SharpValue > 200){
+    brake();
+    return;
+  }
+
+  //Light is out of range
+  if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue>AMB || R_PhotoValue>AMB)){
+    spin(55);
+  }
+  
+  //Light is straight ahead
+  if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue<AMB || R_PhotoValue<AMB)){
+    straightFwd(90);
+  }
+
+  //Light is to the left
+  if(Delta<(-DELTA)){
+    driveLeft(90, 5);
+  }
+
+  //Light is to the right
+  if(Delta>DELTA){
+    driveRight(90, 5);
+  }
+  
+
+//   Serial.println(SharpValue);
+  Serial.print("Delta value= ");
+  Serial.println(Delta);
+  Serial.print("L_Photo Sensor = ");
+  Serial.println(L_PhotoValue);
+  Serial.print("R_Photo Sensor = ");
+  Serial.println(R_PhotoValue);
+  Serial.println(" ");
+//
+//  delay(500);
+}
