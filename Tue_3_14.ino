@@ -207,16 +207,12 @@ void driveRight(int d, int t) {
   pulseMotors();
 }
 
-//************************  loop()  ****************************
-//**********************  Main Loop  ***************************
+//*****************  navToLight()  ************************
+//*******  Find light and drive to it until you are 1ft away **************
 //**************************************************************
-void loop()
-{
-  int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
+void navToLight() {
+ int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
   int AMB = 800; //Sensor is looking at ambient if reading this or higher
-  
-  Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
-  Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
 
   L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
   R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
@@ -234,6 +230,11 @@ void loop()
     spin(55);
   }
   
+    //Too close to box or obstacle - back up
+  if(SharpValue >= 400){
+    straightRev(100); 
+  }
+  
   //Light is straight ahead
   if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue<AMB || R_PhotoValue<AMB)){
     straightFwd(90);
@@ -248,16 +249,12 @@ void loop()
   if(Delta>DELTA){
     driveRight(90, 5);
   }
-  
+}
 
-//   Serial.println(SharpValue);
-  Serial.print("Delta value= ");
-  Serial.println(Delta);
-  Serial.print("L_Photo Sensor = ");
-  Serial.println(L_PhotoValue);
-  Serial.print("R_Photo Sensor = ");
-  Serial.println(R_PhotoValue);
-  Serial.println(" ");
-//
-//  delay(500);
+//************************  loop()  ****************************
+//**********************  Main Loop  ***************************
+//**************************************************************
+void loop()
+{
+  navToLight();
 }
